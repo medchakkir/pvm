@@ -18,18 +18,30 @@ const (
 
 // RemoteVersion represents a PHP version available for download.
 type RemoteVersion struct {
-	Version     PHPVersion
-	DownloadURL string
-	ZipName     string
+	Version      PHPVersion
+	DownloadURL  string
+	ZipName      string
+	ThreadSafe   bool
 }
 
-// String returns a display-friendly label.
+// String returns a display-friendly label including thread-safety type.
 func (r RemoteVersion) String() string {
-	return r.Version.String()
+	if r.ThreadSafe {
+		return fmt.Sprintf("%s (TS)", r.Version.String())
+	}
+	return fmt.Sprintf("%s (NTS)", r.Version.String())
+}
+
+// TypeLabel returns "TS" or "NTS".
+func (r RemoteVersion) TypeLabel() string {
+	if r.ThreadSafe {
+		return "TS"
+	}
+	return "NTS"
 }
 
 // FetchRemoteVersions fetches available PHP Windows builds from php.net.
-// It returns only stable, thread-safe (TS) x64 ZIP builds.
+// It returns both Thread Safe (TS) and Non-Thread Safe (NTS) x64 ZIP builds.
 func FetchRemoteVersions() ([]RemoteVersion, error) {
 	client := &http.Client{Timeout: 15 * time.Second}
 
@@ -50,9 +62,14 @@ func FetchRemoteVersions() ([]RemoteVersion, error) {
 
 	versions := filterPHPZips(links, phpWindowsDownloadsURL)
 
-	// Sort descending (newest first)
+	// Sort descending (newest first), TS before NTS within same version
 	sort.Slice(versions, func(i, j int) bool {
-		return versions[i].Version.Compare(versions[j].Version) > 0
+		cmp := versions[i].Version.Compare(versions[j].Version)
+		if cmp != 0 {
+			return cmp > 0
+		}
+		// Same version: TS comes before NTS
+		return versions[i].ThreadSafe && !versions[j].ThreadSafe
 	})
 
 	return versions, nil
@@ -84,13 +101,14 @@ func extractLinks(resp *http.Response) ([]string, error) {
 	return links, nil
 }
 
-// phpZipPattern matches filenames like: php-8.3.7-Win32-vs16-x64.zip
-// We want: TS (no "-nts-"), x64, .zip
+// phpZipPattern matches both TS and NTS x64 ZIP builds, e.g.:
+//   php-8.3.7-Win32-vs16-x64.zip       (TS)
+//   php-8.3.7-nts-Win32-vs16-x64.zip   (NTS)
 var phpZipPattern = regexp.MustCompile(
-	`^php-(\d+\.\d+\.\d+)-Win32-vs\d+-x64\.zip$`,
+	`^php-(\d+\.\d+\.\d+)(-nts)?-Win32-vs\d+-x64\.zip$`,
 )
 
-// filterPHPZips filters raw href links down to valid TS x64 ZIP builds.
+// filterPHPZips filters raw href links down to valid TS and NTS x64 ZIP builds.
 func filterPHPZips(links []string, baseURL string) []RemoteVersion {
 	seen := map[string]bool{}
 	var versions []RemoteVersion
@@ -102,8 +120,8 @@ func filterPHPZips(links []string, baseURL string) []RemoteVersion {
 			filename = link[idx+1:]
 		}
 
-		// Skip non-TS (NTS) builds and debug packs
-		if strings.Contains(filename, "-nts-") || strings.Contains(filename, "-debug-") {
+		// Skip debug packs only
+		if strings.Contains(filename, "-debug-") {
 			continue
 		}
 
@@ -113,10 +131,15 @@ func filterPHPZips(links []string, baseURL string) []RemoteVersion {
 		}
 
 		rawVersion := matches[1]
-		if seen[rawVersion] {
+		isNTS := matches[2] == "-nts"
+		threadSafe := !isNTS
+
+		// Dedup key includes type so 8.3.7-ts and 8.3.7-nts are both kept
+		dedupKey := rawVersion + "-" + map[bool]string{true: "ts", false: "nts"}[threadSafe]
+		if seen[dedupKey] {
 			continue
 		}
-		seen[rawVersion] = true
+		seen[dedupKey] = true
 
 		version, err := ParseVersion(rawVersion)
 		if err != nil || !version.IsValid() {
@@ -133,6 +156,7 @@ func filterPHPZips(links []string, baseURL string) []RemoteVersion {
 			Version:     version,
 			DownloadURL: downloadURL,
 			ZipName:     filename,
+			ThreadSafe:  threadSafe,
 		})
 	}
 
@@ -140,17 +164,17 @@ func filterPHPZips(links []string, baseURL string) []RemoteVersion {
 }
 
 // FindRemoteVersion finds the best matching remote version for a user input.
-// "8.3" → returns the latest 8.3.x available.
-// "8.3.7" → returns exactly 8.3.7 if available.
-func FindRemoteVersion(input string, available []RemoteVersion) (RemoteVersion, error) {
+// "8.3" → returns the latest 8.3.x TS build (or NTS if threadSafe=false).
+// "8.3.7" → returns exactly 8.3.7 with the matching thread-safety type.
+func FindRemoteVersion(input string, available []RemoteVersion, threadSafe bool) (RemoteVersion, error) {
 	parsed, err := ParseVersion(input)
 	if err != nil {
 		return RemoteVersion{}, err
 	}
 
-	// Try exact match first
+	// Try exact match first (version + thread-safety type)
 	for _, v := range available {
-		if v.Version.Compare(parsed) == 0 {
+		if v.Version.Compare(parsed) == 0 && v.ThreadSafe == threadSafe {
 			return v, nil
 		}
 	}
@@ -159,7 +183,7 @@ func FindRemoteVersion(input string, available []RemoteVersion) (RemoteVersion, 
 	if parsed.Patch == 0 {
 		var best *RemoteVersion
 		for i, v := range available {
-			if v.Version.MatchesMinor(parsed) {
+			if v.Version.MatchesMinor(parsed) && v.ThreadSafe == threadSafe {
 				if best == nil || v.Version.Compare(best.Version) > 0 {
 					best = &available[i]
 				}
@@ -170,5 +194,9 @@ func FindRemoteVersion(input string, available []RemoteVersion) (RemoteVersion, 
 		}
 	}
 
-	return RemoteVersion{}, fmt.Errorf("PHP %s not found — run `pvm list-remote` to see available versions", input)
+	tsLabel := map[bool]string{true: "TS", false: "NTS"}[threadSafe]
+	return RemoteVersion{}, fmt.Errorf(
+		"PHP %s (%s) not found — run `pvm list-remote` to see available versions",
+		input, tsLabel,
+	)
 }
