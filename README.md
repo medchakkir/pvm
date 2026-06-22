@@ -1,6 +1,6 @@
 # PVM for Windows
 
-PVM (Python Version Manager) for Windows is a simple tool to manage multiple Python versions on your Windows machine.
+PVM (PHP Version Manager) for Windows is a simple tool to manage multiple PHP versions on your Windows machine.
 
 ## Installation
 
