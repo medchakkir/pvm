@@ -1,12 +1,12 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/medchakkir/pvm/internal/config"
 	"github.com/medchakkir/pvm/internal/php"
+	"github.com/medchakkir/pvm/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -24,15 +24,15 @@ Use --nts to install the Non-Thread Safe build instead.`,
 		threadSafe := !installNtsFlag
 
 		// 1. Resolve the exact version from php.net
-		fmt.Println("Fetching available versions from php.net...")
+		ui.Info("Fetching available versions from php.net...")
 		remoteVersions, err := php.FetchRemoteVersions()
 		if err != nil {
-			return fmt.Errorf("✗ %w", err)
+			return err
 		}
 
 		target, err := php.FindRemoteVersion(input, remoteVersions, threadSafe)
 		if err != nil {
-			return fmt.Errorf("✗ %w", err)
+			return err
 		}
 
 		// 2. Check if already installed
@@ -46,36 +46,36 @@ Use --nts to install the Non-Thread Safe build instead.`,
 		versionDir := filepath.Join(versionsDir, dirName)
 
 		if _, err := os.Stat(versionDir); err == nil {
-			fmt.Printf("✓ PHP %s is already installed.\n", target)
-			fmt.Printf("  Run `pvm use %s` to switch to it.\n", target.Version)
+			ui.Success("PHP %s is already installed.", target)
+			ui.Detail("  Run `pvm use %s` to switch to it.", target.Version)
 			return nil
 		}
 
-		fmt.Printf("Installing PHP %s...\n", target)
+		ui.Info("Installing PHP %s...", target)
 
 		// 3. Download ZIP to a temp file
 		tmpFile := filepath.Join(os.TempDir(), target.ZipName)
 		defer os.Remove(tmpFile)
 
 		if err := php.DownloadZip(target.DownloadURL, tmpFile); err != nil {
-			return fmt.Errorf("✗ %w", err)
+			return err
 		}
 
 		// 4. Extract into ~/.pvm/versions/<version>-<type>/
-		fmt.Println("\nExtracting...")
+		ui.Info("\nExtracting...")
 		if err := php.ExtractZip(tmpFile, versionDir); err != nil {
 			os.RemoveAll(versionDir)
-			return fmt.Errorf("✗ %w", err)
+			return err
 		}
 
 		// 5. Verify php.exe exists
 		if err := php.VerifyInstall(versionDir); err != nil {
 			os.RemoveAll(versionDir)
-			return fmt.Errorf("✗ %w", err)
+			return err
 		}
 
-		fmt.Printf("✓ PHP %s installed successfully.\n", target)
-		fmt.Printf("  Run `pvm use %s` to activate it.\n", target.Version)
+		ui.Success("PHP %s installed successfully.", target)
+		ui.Detail("  Run `pvm use %s` to activate it.", target.Version)
 		return nil
 	},
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/medchakkir/pvm/internal/config"
 	"github.com/medchakkir/pvm/internal/env"
 	"github.com/medchakkir/pvm/internal/php"
+	"github.com/medchakkir/pvm/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -23,7 +24,7 @@ var useCmd = &cobra.Command{
 
 		requested, err := php.ParseVersion(input)
 		if err != nil {
-			return fmt.Errorf("✗ invalid version %q: %w", input, err)
+			return fmt.Errorf("invalid version %q: %w", input, err)
 		}
 
 		versionsDir, err := config.VersionsDir()
@@ -33,7 +34,7 @@ var useCmd = &cobra.Command{
 
 		entries, err := os.ReadDir(versionsDir)
 		if err != nil {
-			return fmt.Errorf("✗ could not read versions directory: %w", err)
+			return fmt.Errorf("could not read versions directory: %w", err)
 		}
 
 		// Determine which types to search for.
@@ -86,7 +87,7 @@ var useCmd = &cobra.Command{
 				installHint = fmt.Sprintf("pvm install --nts %s", input)
 			}
 			return fmt.Errorf(
-				"✗ PHP %s is not installed.\n  Run `%s` first.",
+				"PHP %s is not installed.\n  Run `%s` first.",
 				input, installHint,
 			)
 		}
@@ -94,7 +95,7 @@ var useCmd = &cobra.Command{
 		// Verify php.exe is intact
 		phpExePath := filepath.Join(versionsDir, matchedDir, "php.exe")
 		if _, err := os.Stat(phpExePath); os.IsNotExist(err) {
-			return fmt.Errorf("✗ php.exe missing for %s — try reinstalling it", matchedDir)
+			return fmt.Errorf("php.exe missing for %s — try reinstalling it", matchedDir)
 		}
 
 		// Write the shim
@@ -104,18 +105,18 @@ var useCmd = &cobra.Command{
 		}
 
 		if err := env.WriteShim(shimsDir, phpExePath); err != nil {
-			return fmt.Errorf("✗ %w", err)
+			return err
 		}
 
 		// Save the active version (store dirName so list can highlight it)
 		if err := config.SetCurrentVersion(matchedDir); err != nil {
-			return fmt.Errorf("✗ could not save active version: %w", err)
+			return fmt.Errorf("could not save active version: %w", err)
 		}
 
-		fmt.Printf("✓ Now using PHP %s (%s)\n", matchedVersion, matchedType)
+		ui.Success("Now using PHP %s (%s)", matchedVersion, matchedType)
 
 		if !env.IsOnPath(shimsDir) {
-			fmt.Println(env.PathInstructions(shimsDir))
+			ui.Info("%s", env.PathInstructions(shimsDir))
 		}
 
 		return nil

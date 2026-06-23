@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/medchakkir/pvm/internal/config"
+	"github.com/medchakkir/pvm/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -43,7 +44,7 @@ on Windows with a single command.
 
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if err := config.Init(); err != nil {
-			return fmt.Errorf("✗ failed to initialize PVM home directory: %w", err)
+			return fmt.Errorf("failed to initialize PVM home directory: %w", err)
 		}
 		if verbose {
 			home, _ := config.PVMHome()
@@ -61,7 +62,7 @@ func Verbose() bool {
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		ui.Error("%s", err)
 		os.Exit(1)
 	}
 }

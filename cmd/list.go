@@ -9,6 +9,7 @@ import (
 
 	"github.com/medchakkir/pvm/internal/config"
 	"github.com/medchakkir/pvm/internal/php"
+	"github.com/medchakkir/pvm/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -25,12 +26,12 @@ var listCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		versionsDir, err := config.VersionsDir()
 		if err != nil {
-			return fmt.Errorf("✗ could not locate versions directory: %w", err)
+			return fmt.Errorf("could not locate versions directory: %w", err)
 		}
 
 		entries, err := os.ReadDir(versionsDir)
 		if err != nil {
-			return fmt.Errorf("✗ could not read versions directory: %w", err)
+			return fmt.Errorf("could not read versions directory: %w", err)
 		}
 
 		var installed []installedVersion
@@ -73,8 +74,8 @@ var listCmd = &cobra.Command{
 		}
 
 		if len(installed) == 0 {
-			fmt.Println("No PHP versions installed.")
-			fmt.Println("Run `pvm list-remote` to see available versions.")
+			ui.Info("No PHP versions installed.")
+			ui.Detail("Run `pvm list-remote` to see available versions.")
 			return nil
 		}
 
@@ -89,7 +90,7 @@ var listCmd = &cobra.Command{
 
 		current, _ := config.GetCurrentVersion()
 
-		fmt.Println("Installed PHP versions:")
+		ui.Title("Installed PHP versions:")
 		for _, iv := range installed {
 			marker := "   "
 			active := ""
@@ -97,12 +98,12 @@ var listCmd = &cobra.Command{
 				marker = " →"
 				active = "  (active)"
 			}
-			fmt.Printf("%s  %-10s %-5s%s\n", marker, iv.version.String(), iv.typeLabel, active)
+			ui.Info("%s  %-10s %-5s%s", marker, iv.version.String(), iv.typeLabel, active)
 		}
 
-		fmt.Printf("\n%d version(s) installed.\n", len(installed))
+		ui.Info("\n%d version(s) installed.", len(installed))
 		if current == "" {
-			fmt.Println("No active version set. Run `pvm use <version>` to activate one.")
+			ui.Detail("No active version set. Run `pvm use <version>` to activate one.")
 		}
 
 		return nil

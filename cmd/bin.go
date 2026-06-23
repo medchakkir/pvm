@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/medchakkir/pvm/internal/config"
+	"github.com/medchakkir/pvm/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -15,18 +16,18 @@ Add this path to your system PATH so that PHP is accessible from any terminal.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		shimsDir, err := config.ShimsDir()
 		if err != nil {
-			return fmt.Errorf("✗ could not locate shims directory: %w", err)
+			return fmt.Errorf("could not locate shims directory: %w", err)
 		}
 
-		fmt.Println(shimsDir)
-		fmt.Println()
-		fmt.Println("Add the above path to your PATH. In PowerShell, run:")
-		fmt.Printf(
-			"  [Environment]::SetEnvironmentVariable(\"Path\", $env:Path + \";%s\", \"User\")\n",
+		ui.Info("%s", shimsDir)
+		ui.Info("")
+		ui.Info("Add the above path to your PATH. In PowerShell, run:")
+		ui.Detail(
+			"  [Environment]::SetEnvironmentVariable(\"Path\", $env:Path + \";%s\", \"User\")",
 			shimsDir,
 		)
-		fmt.Println()
-		fmt.Println("Then restart your terminal.")
+		ui.Info("")
+		ui.Info("Then restart your terminal.")
 
 		return nil
 	},

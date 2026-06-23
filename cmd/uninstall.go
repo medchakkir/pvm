@@ -9,6 +9,7 @@ import (
 
 	"github.com/medchakkir/pvm/internal/config"
 	"github.com/medchakkir/pvm/internal/php"
+	"github.com/medchakkir/pvm/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +22,7 @@ var uninstallCmd = &cobra.Command{
 
 		requested, err := php.ParseVersion(input)
 		if err != nil {
-			return fmt.Errorf("✗ invalid version %q: %w", input, err)
+			return fmt.Errorf("invalid version %q: %w", input, err)
 		}
 
 		versionsDir, err := config.VersionsDir()
@@ -32,7 +33,7 @@ var uninstallCmd = &cobra.Command{
 		// Find all installed directories that match (covers both TS and NTS)
 		entries, err := os.ReadDir(versionsDir)
 		if err != nil {
-			return fmt.Errorf("✗ could not read versions directory: %w", err)
+			return fmt.Errorf("could not read versions directory: %w", err)
 		}
 
 		var matches []string
@@ -55,7 +56,7 @@ var uninstallCmd = &cobra.Command{
 		}
 
 		if len(matches) == 0 {
-			return fmt.Errorf("✗ PHP %s is not installed", input)
+			return fmt.Errorf("PHP %s is not installed", input)
 		}
 
 		// Block uninstall if any match is the active version
@@ -66,16 +67,16 @@ var uninstallCmd = &cobra.Command{
 		for _, match := range matches {
 			if match == current {
 				return fmt.Errorf(
-					"✗ PHP %s is currently active — run `pvm use <another version>` before uninstalling",
+					"PHP %s is currently active — run `pvm use <another version>` before uninstalling",
 					match,
 				)
 			}
 		}
 
 		// Show what will be removed and confirm
-		fmt.Println("The following will be removed:")
+		ui.Title("The following will be removed:")
 		for _, match := range matches {
-			fmt.Printf("  ~/.pvm/versions/%s\n", match)
+			ui.Info("  ~/.pvm/versions/%s", match)
 		}
 
 		fmt.Print("\nContinue? [y/N] ")
@@ -83,7 +84,7 @@ var uninstallCmd = &cobra.Command{
 		scanner.Scan()
 		answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
 		if answer != "y" {
-			fmt.Println("Aborted.")
+			ui.Warning("Aborted.")
 			return nil
 		}
 
@@ -91,9 +92,9 @@ var uninstallCmd = &cobra.Command{
 		for _, match := range matches {
 			dir := filepath.Join(versionsDir, match)
 			if err := os.RemoveAll(dir); err != nil {
-				return fmt.Errorf("✗ failed to remove %s: %w", match, err)
+				return fmt.Errorf("failed to remove %s: %w", match, err)
 			}
-			fmt.Printf("✓ Removed PHP %s\n", match)
+			ui.Success("Removed PHP %s", match)
 		}
 
 		return nil

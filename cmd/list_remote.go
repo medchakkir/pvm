@@ -2,9 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/medchakkir/pvm/internal/php"
+	"github.com/medchakkir/pvm/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -19,15 +19,15 @@ var listRemoteCmd = &cobra.Command{
 	Short: "Show available PHP versions from php.net",
 	Long:  `Fetches and displays PHP versions available for download (Windows x64 builds, both TS and NTS).`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("Fetching available PHP versions from php.net...")
+		ui.Info("Fetching available PHP versions from php.net...")
 
 		versions, err := php.FetchRemoteVersions()
 		if err != nil {
-			return fmt.Errorf("✗ %w", err)
+			return err
 		}
 
 		if len(versions) == 0 {
-			fmt.Println("No versions found. Check your internet connection.")
+			ui.Warning("No versions found. Check your internet connection.")
 			return nil
 		}
 
@@ -45,24 +45,24 @@ var listRemoteCmd = &cobra.Command{
 			display = filtered[:limitFlag]
 		}
 
-		fmt.Printf("\n%-12s %-6s %s\n", "VERSION", "TYPE", "FILENAME")
-		fmt.Println("----------------------------------------------------------")
+		ui.Title("\n%-12s %-6s %s", "VERSION", "TYPE", "FILENAME")
+		ui.Info("----------------------------------------------------------")
 
 		for _, v := range display {
-			fmt.Fprintf(os.Stdout, "%-12s %-6s %s\n",
+			ui.Info("%-12s %-6s %s",
 				v.Version.String(),
 				v.TypeLabel(),
 				v.ZipName,
 			)
 		}
 
-		fmt.Printf("\n%d build(s) shown", len(display))
+		summary := fmt.Sprintf("\n%d build(s) shown", len(display))
 		if len(display) < len(filtered) {
-			fmt.Printf(" (of %d — use --limit 0 to show all)", len(filtered))
+			summary += fmt.Sprintf(" (of %d — use --limit 0 to show all)", len(filtered))
 		}
-		fmt.Println()
-		fmt.Println("\nRun `pvm install <version>` to install a TS build.")
-		fmt.Println("Run `pvm install --nts <version>` to install an NTS build.")
+		ui.Info("%s", summary)
+		ui.Detail("\nRun `pvm install <version>` to install a TS build.")
+		ui.Detail("Run `pvm install --nts <version>` to install an NTS build.")
 
 		return nil
 	},
