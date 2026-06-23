@@ -10,6 +10,21 @@ import (
 
 var verbose bool
 
+// Version metadata, set by SetVersionInfo from main at startup.
+var (
+	versionInfo = "dev"
+	commitInfo  = "none"
+	dateInfo    = "unknown"
+)
+
+// SetVersionInfo wires build-time version metadata into the CLI.
+func SetVersionInfo(version, commit, date string) {
+	versionInfo = version
+	commitInfo = commit
+	dateInfo = date
+	rootCmd.Version = version
+}
+
 var rootCmd = &cobra.Command{
 	Use:          "pvm",
 	Short:        "PVM — PHP Version Manager for Windows",
