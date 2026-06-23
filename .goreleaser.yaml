@@ -14,7 +14,6 @@ builds:
       - windows
     goarch:
       - amd64
-      - arm64
     env:
       - CGO_ENABLED=0
     ldflags:
@@ -26,10 +25,11 @@ builds:
 
 archives:
   - id: pvm-archive
-    builds:
+    ids:
       - pvm-windows
     name_template: "pvm_{{.Version}}_{{.Os}}_{{.Arch}}"
-    format: zip
+    formats:
+      - zip
     files:
       - README.md
       - LICENSE
@@ -58,6 +58,9 @@ release:
 
   footer: |
     **Full Changelog**: https://github.com/medchakkir/pvm/compare/{{ .PreviousTag }}...{{ .Tag }}
+  extra_files:
+    # Publish the installer script so `irm .../install.ps1 | iex` works
+    - glob: ./install.ps1
 
 changelog:
   sort: asc
