@@ -8,24 +8,38 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var verbose bool
+
 var rootCmd = &cobra.Command{
 	Use:   "pvm",
 	Short: "PVM — PHP Version Manager for Windows",
 	Long: `PVM lets you install, switch, and manage multiple PHP versions
 on Windows with a single command.
 
-  pvm install 8.3       Install PHP 8.3
-  pvm use 8.2           Switch to PHP 8.2
-  pvm list              Show installed versions
-  pvm list-remote       Show available versions`,
+  pvm install 8.3           Install PHP 8.3 (Thread Safe)
+  pvm install --nts 8.3     Install PHP 8.3 (Non-Thread Safe)
+  pvm use 8.2               Switch to PHP 8.2
+  pvm list                  Show installed versions
+  pvm list-remote           Show available versions
+  pvm current               Show active version
+  pvm uninstall 8.1         Remove PHP 8.1`,
 
-	// Runs before every subcommand
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if err := config.Init(); err != nil {
-			return fmt.Errorf("failed to initialize PVM home: %w", err)
+			return fmt.Errorf("✗ failed to initialize PVM home directory: %w", err)
+		}
+		if verbose {
+			home, _ := config.PVMHome()
+			fmt.Fprintf(os.Stderr, "[debug] PVM home: %s\n", home)
 		}
 		return nil
 	},
+}
+
+// Verbose returns true if the --verbose flag was set.
+// Used by other commands to print extra debug info.
+func Verbose() bool {
+	return verbose
 }
 
 func Execute() {
@@ -33,4 +47,8 @@ func Execute() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func init() {
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Print debug information")
 }

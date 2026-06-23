@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/medchakkir/pvm/internal/config"
 	"github.com/medchakkir/pvm/internal/env"
 	"github.com/medchakkir/pvm/internal/php"
 	"github.com/spf13/cobra"
 )
+
+var useNtsFlag bool
 
 var useCmd = &cobra.Command{
 	Use:   "use <version>",
@@ -18,13 +21,11 @@ var useCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		input := args[0]
 
-		// 1. Parse the requested version
 		requested, err := php.ParseVersion(input)
 		if err != nil {
 			return fmt.Errorf("✗ invalid version %q: %w", input, err)
 		}
 
-		// 2. Find the best match among installed versions
 		versionsDir, err := config.VersionsDir()
 		if err != nil {
 			return err
@@ -35,38 +36,59 @@ var useCmd = &cobra.Command{
 			return fmt.Errorf("✗ could not read versions directory: %w", err)
 		}
 
-		var matched *php.PHPVersion
+		// Find best match respecting the --nts flag
+		wantType := "TS"
+		if useNtsFlag {
+			wantType = "NTS"
+		}
+
+		var matchedDir string
+		var matchedVersion php.PHPVersion
+
 		for _, entry := range entries {
 			if !entry.IsDir() {
 				continue
 			}
-			v, err := php.ParseVersion(entry.Name())
+
+			name := entry.Name() // e.g. "8.3.7-TS"
+
+			// Check type suffix matches what was requested
+			if !strings.HasSuffix(name, "-"+wantType) {
+				continue
+			}
+
+			versionPart := strings.TrimSuffix(name, "-"+wantType)
+			v, err := php.ParseVersion(versionPart)
 			if err != nil {
 				continue
 			}
-			// Exact match, or Major.Minor match when patch was omitted
+
 			if v.Compare(requested) == 0 || (requested.Patch == 0 && v.MatchesMinor(requested)) {
-				if matched == nil || v.Compare(*matched) > 0 {
-					copy := v
-					matched = &copy
+				if matchedDir == "" || v.Compare(matchedVersion) > 0 {
+					matchedDir = name
+					matchedVersion = v
 				}
 			}
 		}
 
-		if matched == nil {
+		if matchedDir == "" {
+			installHint := fmt.Sprintf("pvm install %s", input)
+			if useNtsFlag {
+				installHint = fmt.Sprintf("pvm install --nts %s", input)
+			}
 			return fmt.Errorf(
-				"✗ PHP %s is not installed.\n  Run `pvm install %s` first.",
-				input, input,
+				"✗ PHP %s (%s) is not installed.\n  Run `%s` first.",
+				input, wantType, installHint,
 			)
 		}
 
-		// 3. Verify php.exe is intact
-		phpExePath := filepath.Join(versionsDir, matched.String(), "php.exe")
+		// Verify php.exe is intact
+		phpExePath := filepath.Join(versionsDir, matchedDir, "php.exe")
 		if _, err := os.Stat(phpExePath); os.IsNotExist(err) {
-			return fmt.Errorf("✗ php.exe missing for version %s — try reinstalling it.", matched)
+			return fmt.Errorf("✗ php.exe missing for %s — try reinstalling it", matchedDir)
 		}
 
-		// 4. Write the shim
+		// Write the shim
 		shimsDir, err := config.ShimsDir()
 		if err != nil {
 			return err
@@ -76,14 +98,13 @@ var useCmd = &cobra.Command{
 			return fmt.Errorf("✗ %w", err)
 		}
 
-		// 5. Save the active version
-		if err := config.SetCurrentVersion(matched.String()); err != nil {
+		// Save the active version (store dirName so list can highlight it)
+		if err := config.SetCurrentVersion(matchedDir); err != nil {
 			return fmt.Errorf("✗ could not save active version: %w", err)
 		}
 
-		fmt.Printf("✓ Now using PHP %s\n", matched)
+		fmt.Printf("✓ Now using PHP %s (%s)\n", matchedVersion, wantType)
 
-		// 6. Warn if shims dir is not on PATH yet
 		if !env.IsOnPath(shimsDir) {
 			fmt.Println(env.PathInstructions(shimsDir))
 		}
@@ -94,4 +115,5 @@ var useCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(useCmd)
+	useCmd.Flags().BoolVar(&useNtsFlag, "nts", false, "Switch to the Non-Thread Safe build")
 }
