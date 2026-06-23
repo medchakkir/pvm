@@ -40,6 +40,7 @@ on Windows with a single command.
   pvm list-remote           Show available versions
   pvm current               Show active version
   pvm uninstall 8.1         Remove PHP 8.1
+  pvm extensions list       Manage extensions for the active version
   pvm bin                   Print the PATH entry to add to your system`,
 
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
