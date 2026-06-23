@@ -1,0 +1,70 @@
+version: 2
+
+project_name: pvm
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: pvm-windows
+    main: ./main.go
+    binary: pvm
+    goos:
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      # Embed the version number and build info into the binary
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: pvm-archive
+    builds:
+      - pvm-windows
+    name_template: "pvm_{{.Version}}_{{.Os}}_{{.Arch}}"
+    format: zip
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: "pvm_{{.Version}}_checksums.txt"
+  algorithm: sha256
+
+release:
+  github:
+    owner: medchakkir
+    name: pvm
+  name_template: "v{{.Version}}"
+  header: |
+    ## PVM v{{ .Version }}
+
+    PHP Version Manager for Windows.
+
+    ### Quick Install (PowerShell)
+    ```powershell
+    irm https://github.com/medchakkir/pvm/releases/latest/download/install.ps1 | iex
+    ```
+
+    ### Manual Install
+    Download `pvm_{{.Version}}_windows_amd64.zip`, extract `pvm.exe` to a folder on your PATH.
+
+  footer: |
+    **Full Changelog**: https://github.com/medchakkir/pvm/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - Merge pull request
+      - Merge branch

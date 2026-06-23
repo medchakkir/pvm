@@ -23,7 +23,8 @@ on Windows with a single command.
   pvm list                  Show installed versions
   pvm list-remote           Show available versions
   pvm current               Show active version
-  pvm uninstall 8.1         Remove PHP 8.1`,
+  pvm uninstall 8.1         Remove PHP 8.1
+  pvm bin                   Print the PATH entry to add to your system`,
 
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if err := config.Init(); err != nil {
