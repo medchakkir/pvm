@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/schollz/progressbar/v3"
@@ -54,8 +55,14 @@ func ExtractZip(zipPath string, destDir string) error {
 		return fmt.Errorf("could not create version directory: %w", err)
 	}
 
+	cleanDest := filepath.Clean(destDir)
+
 	for _, f := range r.File {
 		destPath := filepath.Join(destDir, f.Name)
+
+		if destPath != cleanDest && !strings.HasPrefix(destPath, cleanDest+string(os.PathSeparator)) {
+			return fmt.Errorf("illegal file path in archive: %s", f.Name)
+		}
 
 		if f.FileInfo().IsDir() {
 			os.MkdirAll(destPath, 0755)
