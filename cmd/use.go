@@ -36,38 +36,47 @@ var useCmd = &cobra.Command{
 			return fmt.Errorf("✗ could not read versions directory: %w", err)
 		}
 
-		// Find best match respecting the --nts flag
-		wantType := "TS"
+		// Determine which types to search for.
+		// If --nts is explicitly passed, look for NTS only.
+		// Otherwise search both TS and NTS, preferring TS when both exist.
+		searchTypes := []string{"TS", "NTS"}
 		if useNtsFlag {
-			wantType = "NTS"
+			searchTypes = []string{"NTS"}
 		}
 
 		var matchedDir string
 		var matchedVersion php.PHPVersion
+		var matchedType string
 
-		for _, entry := range entries {
-			if !entry.IsDir() {
-				continue
-			}
-
-			name := entry.Name() // e.g. "8.3.7-TS"
-
-			// Check type suffix matches what was requested
-			if !strings.HasSuffix(name, "-"+wantType) {
-				continue
-			}
-
-			versionPart := strings.TrimSuffix(name, "-"+wantType)
-			v, err := php.ParseVersion(versionPart)
-			if err != nil {
-				continue
-			}
-
-			if v.Compare(requested) == 0 || (requested.Patch == 0 && v.MatchesMinor(requested)) {
-				if matchedDir == "" || v.Compare(matchedVersion) > 0 {
-					matchedDir = name
-					matchedVersion = v
+		for _, wantType := range searchTypes {
+			for _, entry := range entries {
+				if !entry.IsDir() {
+					continue
 				}
+
+				name := entry.Name() // e.g. "8.3.7-TS"
+
+				if !strings.HasSuffix(name, "-"+wantType) {
+					continue
+				}
+
+				versionPart := strings.TrimSuffix(name, "-"+wantType)
+				v, err := php.ParseVersion(versionPart)
+				if err != nil {
+					continue
+				}
+
+				if v.Compare(requested) == 0 || (requested.Patch == 0 && v.MatchesMinor(requested)) {
+					if matchedDir == "" || v.Compare(matchedVersion) > 0 {
+						matchedDir = name
+						matchedVersion = v
+						matchedType = wantType
+					}
+				}
+			}
+			// If we found a match at this preference level, stop searching
+			if matchedDir != "" {
+				break
 			}
 		}
 
@@ -77,8 +86,8 @@ var useCmd = &cobra.Command{
 				installHint = fmt.Sprintf("pvm install --nts %s", input)
 			}
 			return fmt.Errorf(
-				"✗ PHP %s (%s) is not installed.\n  Run `%s` first.",
-				input, wantType, installHint,
+				"✗ PHP %s is not installed.\n  Run `%s` first.",
+				input, installHint,
 			)
 		}
 
@@ -103,7 +112,7 @@ var useCmd = &cobra.Command{
 			return fmt.Errorf("✗ could not save active version: %w", err)
 		}
 
-		fmt.Printf("✓ Now using PHP %s (%s)\n", matchedVersion, wantType)
+		fmt.Printf("✓ Now using PHP %s (%s)\n", matchedVersion, matchedType)
 
 		if !env.IsOnPath(shimsDir) {
 			fmt.Println(env.PathInstructions(shimsDir))

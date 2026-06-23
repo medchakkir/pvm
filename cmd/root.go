@@ -11,8 +11,9 @@ import (
 var verbose bool
 
 var rootCmd = &cobra.Command{
-	Use:   "pvm",
-	Short: "PVM — PHP Version Manager for Windows",
+	Use:          "pvm",
+	Short:        "PVM — PHP Version Manager for Windows",
+	SilenceUsage: true, // don't print usage on runtime errors, only on wrong args
 	Long: `PVM lets you install, switch, and manage multiple PHP versions
 on Windows with a single command.
 
