@@ -93,18 +93,19 @@ var useCmd = &cobra.Command{
 		}
 
 		// Verify php.exe is intact
-		phpExePath := filepath.Join(versionsDir, matchedDir, "php.exe")
+		matchedVersionDir := filepath.Join(versionsDir, matchedDir)
+		phpExePath := filepath.Join(matchedVersionDir, "php.exe")
 		if _, err := os.Stat(phpExePath); os.IsNotExist(err) {
 			return fmt.Errorf("php.exe missing for %s — try reinstalling it", matchedDir)
 		}
 
-		// Write the shim
+		// Write the shims (php, php-cgi, …) for the active version
 		shimsDir, err := config.ShimsDir()
 		if err != nil {
 			return err
 		}
 
-		if err := env.WriteShim(shimsDir, phpExePath); err != nil {
+		if err := env.WriteShim(shimsDir, env.DefaultShims(matchedVersionDir)); err != nil {
 			return err
 		}
 
