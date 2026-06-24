@@ -49,17 +49,21 @@ pvm bin                          # print the shims path to add to your PATH
 
 ## How It Works
 
-PVM installs PHP versions into `~/.pvm/versions/` and maintains a single `php.bat` shim in `~/.pvm/shims/`. That shims directory stays permanently on your PATH — switching versions simply rewrites the shim to point to a different PHP binary. No registry editing on every switch, no terminal restarts needed.
+PVM installs PHP versions into `~/.pvm/versions/` and maintains a set of `.bat` shims in `~/.pvm/shims/` (`php`, `php-cgi`, and `composer` when installed). That shims directory stays permanently on your PATH — switching versions simply rewrites the shims to point to a different PHP binary. No registry editing on every switch, no terminal restarts needed.
 
 ```
 ~/.pvm/
 ├── versions/
-│   ├── 8.3.7-TS/     ← extracted PHP installs
+│   ├── 8.3.7-TS/     ← extracted PHP installs (+ composer.phar if requested)
 │   └── 8.2.18-NTS/
 ├── shims/
-│   └── php.bat       ← always on PATH, rewrites on `pvm use`
+│   ├── php.bat       ← always on PATH, rewrites on `pvm use`
+│   ├── php-cgi.bat   ← FastCGI launcher
+│   └── composer.bat  ← present when the active version has Composer
 └── current           ← active version name
 ```
+
+Install Composer alongside PHP with `pvm install --with-composer <version>`. PVM picks the right Composer line for the runtime (Composer 2.2 LTS for PHP < 7.2, latest stable otherwise).
 
 ---
 

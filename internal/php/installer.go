@@ -15,6 +15,12 @@ import (
 
 // DownloadZip downloads a ZIP from url into destPath, showing a progress bar.
 func DownloadZip(url string, destPath string) error {
+	return DownloadFile(url, destPath, "Downloading")
+}
+
+// DownloadFile downloads url into destPath, showing a progress bar labeled with
+// description. It follows redirects (used by Composer's channel URLs).
+func DownloadFile(url, destPath, description string) error {
 	client := &http.Client{Timeout: 5 * time.Minute}
 
 	resp, err := client.Get(url)
@@ -29,11 +35,11 @@ func DownloadZip(url string, destPath string) error {
 
 	out, err := os.Create(destPath)
 	if err != nil {
-		return fmt.Errorf("could not create temp file: %w", err)
+		return fmt.Errorf("could not create file: %w", err)
 	}
 	defer out.Close()
 
-	bar := progressbar.DefaultBytes(resp.ContentLength, "Downloading")
+	bar := progressbar.DefaultBytes(resp.ContentLength, description)
 
 	_, err = io.Copy(io.MultiWriter(out, bar), resp.Body)
 	if err != nil {

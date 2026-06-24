@@ -40,6 +40,47 @@ func TestWriteShimWritesPresentTargetsAndCleansStale(t *testing.T) {
 	}
 }
 
+func TestComposerShimWrittenOnlyWithPhar(t *testing.T) {
+	versionDir := t.TempDir()
+	shimsDir := t.TempDir()
+
+	phpExe := filepath.Join(versionDir, "php.exe")
+	if err := os.WriteFile(phpExe, []byte("binary"), 0755); err != nil {
+		t.Fatalf("setup php.exe: %v", err)
+	}
+
+	// Without composer.phar present, no composer.bat should be written.
+	if err := WriteShim(shimsDir, DefaultShims(versionDir)); err != nil {
+		t.Fatalf("WriteShim error: %v", err)
+	}
+	composerShim := ShimPathFor(shimsDir, "composer")
+	if _, err := os.Stat(composerShim); !os.IsNotExist(err) {
+		t.Fatalf("composer shim should not exist yet, stat err = %v", err)
+	}
+
+	// Add composer.phar and rewrite: composer.bat should appear and invoke php.
+	phar := filepath.Join(versionDir, "composer.phar")
+	if err := os.WriteFile(phar, []byte("phar"), 0644); err != nil {
+		t.Fatalf("setup composer.phar: %v", err)
+	}
+	if err := WriteShim(shimsDir, DefaultShims(versionDir)); err != nil {
+		t.Fatalf("WriteShim error: %v", err)
+	}
+
+	data, err := os.ReadFile(composerShim)
+	if err != nil {
+		t.Fatalf("composer shim not written: %v", err)
+	}
+	body := string(data)
+	if !strings.Contains(body, phpExe) || !strings.Contains(body, phar) {
+		t.Errorf("composer shim should run php with the phar, got %q", body)
+	}
+	// Paths must be raw (not Go-escaped) so the .bat is valid.
+	if strings.Contains(body, `\\`) {
+		t.Errorf("composer shim must not contain escaped backslashes: %q", body)
+	}
+}
+
 func TestWriteShimWritesPhpCgiWhenPresent(t *testing.T) {
 	versionDir := t.TempDir()
 	shimsDir := t.TempDir()

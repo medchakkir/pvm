@@ -35,6 +35,7 @@ on Windows with a single command.
 
   pvm install 8.3           Install PHP 8.3 (Thread Safe)
   pvm install --nts 8.3     Install PHP 8.3 (Non-Thread Safe)
+  pvm install --with-composer 8.3   Install PHP 8.3 and Composer
   pvm use 8.2               Switch to PHP 8.2
   pvm list                  Show installed versions
   pvm list-remote           Show available versions
