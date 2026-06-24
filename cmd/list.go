@@ -95,7 +95,6 @@ var listCmd = &cobra.Command{
 			marker := "   "
 			active := ""
 			if iv.dirName == current {
-				marker = " →"
 				active = "  (active)"
 			}
 			ui.Info("%s  %-10s %-5s%s", marker, iv.version.String(), iv.typeLabel, active)
