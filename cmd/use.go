@@ -16,11 +16,56 @@ import (
 var useNtsFlag bool
 
 var useCmd = &cobra.Command{
-	Use:   "use <version>",
+	Use:   "use [version]",
 	Short: "Switch the active PHP version",
-	Args:  cobra.ExactArgs(1),
+	Long: `Switch the active PHP version.
+
+  pvm use 8.3        # switch to PHP 8.3 (resolves to latest installed patch)
+  pvm use 8.3.7      # switch to exact version
+  pvm use --nts 8.3  # switch to the NTS build specifically
+  pvm use            # read version from .pvmrc in current or parent directory`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		input := args[0]
+		var input string
+
+		if len(args) == 1 {
+			input = args[0]
+		} else {
+			// No version argument — look for a .pvmrc file
+			cwd, err := os.Getwd()
+			if err != nil {
+				return fmt.Errorf("could not determine current directory: %w", err)
+			}
+
+			pvmrcPath, err := config.FindPvmrc(cwd)
+			if err != nil {
+				return err
+			}
+			if pvmrcPath == "" {
+				return fmt.Errorf(
+					"no version specified and no .pvmrc found in this directory or any parent.\n" +
+						"  Run `pvm init` to pin a version here, or specify one: `pvm use <version>`",
+				)
+			}
+
+			input, err = config.ReadPvmrc(pvmrcPath)
+			if err != nil {
+				return err
+			}
+
+			ui.Detail("Using version from %s", pvmrcPath)
+
+			// If the .pvmrc contains a full dir name like "8.3.7-TS", extract
+			// the type suffix so --nts logic works correctly below.
+			if !useNtsFlag {
+				if strings.HasSuffix(strings.ToUpper(input), "-NTS") {
+					useNtsFlag = true
+					input = input[:len(input)-4]
+				} else if strings.HasSuffix(strings.ToUpper(input), "-TS") {
+					input = input[:len(input)-3]
+				}
+			}
+		}
 
 		requested, err := php.ParseVersion(input)
 		if err != nil {
@@ -90,6 +135,11 @@ var useCmd = &cobra.Command{
 				"PHP %s is not installed.\n  Run `%s` first.",
 				input, installHint,
 			)
+		}
+
+		// Show resolution when the user supplied a minor version (no patch)
+		if requested.Patch == 0 {
+			ui.Detail("Resolved %s → %s", requested.MinorString(), matchedVersion)
 		}
 
 		// Verify php.exe is intact
