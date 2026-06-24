@@ -15,7 +15,7 @@ irm https://github.com/medchakkir/pvm/releases/latest/download/install.ps1 | iex
 ```
 
 **Manual:**
-Download the latest `pvm_*_windows_amd64.zip` from [Releases](https://github.com/medchakkir/pvm/releases), extract `pvm.exe`, and place it in a folder on your PATH.
+Download the latest `pvm-v*-windows-amd64.zip` from [Releases](https://github.com/medchakkir/pvm/releases), extract `pvm.exe`, and place it in a folder on your PATH.
 
 ---
 
@@ -36,6 +36,11 @@ pvm install --with-composer 8.3  # install PHP 8.3 and Composer
 # Switch versions
 pvm use 8.2                      # switch to PHP 8.2 (auto-detects TS/NTS)
 pvm use --nts 8.2                # switch to NTS build specifically
+pvm use                          # switch using .pvmrc from current or parent directory
+
+# Pin project version
+pvm init                         # write .pvmrc with the currently active version
+pvm init 8.3                    # write .pvmrc with a specific installed version
 
 # Manage installs
 pvm list                         # show installed versions + active one
@@ -56,65 +61,42 @@ pvm bin                          # print the shims path to add to your PATH
 
 ## How It Works
 
-PVM installs PHP versions into `~/.pvm/versions/` and maintains a set of `.bat` shims in `~/.pvm/shims/` (`php`, `php-cgi`, and `composer` when installed). That shims directory stays permanently on your PATH — switching versions simply rewrites the shims to point to a different PHP binary. No registry editing on every switch, no terminal restarts needed.
+PVM stores PHP versions in `~/.pvm/versions/` and maintains `.bat` shims in `~/.pvm/shims/` that stay on your PATH. Switching versions simply rewrites the shims to point to a different binary—no registry edits, no terminal restarts.
 
-```
-~/.pvm/
-├── versions/
-│   ├── 8.3.7-TS/     ← extracted PHP installs (+ composer.phar if requested)
-│   └── 8.2.18-NTS/
-├── shims/
-│   ├── php.bat       ← always on PATH, rewrites on `pvm use`
-│   ├── php-cgi.bat   ← FastCGI launcher
-│   └── composer.bat  ← present when the active version has Composer
-└── current           ← active version name
-```
+With `pvm install --with-composer <version>`, Composer is installed alongside PHP.
 
-Install Composer alongside PHP with `pvm install --with-composer <version>`. PVM picks the right Composer line for the runtime (Composer 2.2 LTS for PHP < 7.2, latest stable otherwise).
+---
+
+## Per-project pinning with .pvmrc
+
+Run `pvm init` in a project directory to write the active version to `.pvmrc`. Then `pvm use` with no arguments will walk up the current directory tree, find the nearest `.pvmrc`, and activate the pinned version.
 
 ---
 
 ## Managing Extensions
 
-PVM can enable and disable PHP extensions by editing the active version's `php.ini` directly. No manual file editing required.
-
 ```powershell
-pvm extensions list
+pvm extensions list                    # show all extensions and their status
+pvm extensions enable curl             # enable an extension
+pvm extensions enable curl,gd,mbstring # enable multiple
+pvm extensions disable xdebug          # disable an extension
 ```
 
-Shows every extension available for the active PHP version, with one of four statuses:
+Extension statuses shown by `pvm extensions list`:
 
-| Status           | Meaning                                       |
-| ---------------- | --------------------------------------------- |
-| `[enabled]`      | Active in `php.ini`                           |
-| `[disabled]`     | Present in `php.ini` but commented out        |
-| `[available]`    | DLL exists in `ext/` but not yet in `php.ini` |
-| `[missing file]` | Entry in `php.ini` but the DLL is gone        |
+- `[enabled]` — the extension is active in `php.ini`
+- `[disabled]` — the extension is present in `php.ini` but commented out
+- `[available]` — the DLL exists in `ext/` but no entry is present in `php.ini`
+- `[missing file]` — `php.ini` contains the extension entry, but the DLL is missing
 
-```powershell
-pvm extensions enable curl
-pvm extensions enable curl,gd,mbstring   # comma-separated for multiple
-```
-
-If the extension already has an entry in `php.ini`, PVM uncomments it. If it only exists as a `.dll` in the `ext/` folder, PVM adds the `extension=` line automatically. If no `php.ini` exists yet, PVM creates one from `php.ini-development`.
-
-```powershell
-pvm extensions disable xdebug
-pvm extensions disable xdebug,opcache
-```
-
-Comments out the directive in `php.ini`. Works for both `extension=` and `zend_extension=` lines (e.g. Xdebug, OPcache).
-
-> **Note:** Extensions are per-version. Run `pvm use <version>` first to switch to the version you want to configure.
+PVM edits `php.ini` directly. It handles both `extension=` and `zend_extension=` directives (e.g., Xdebug, OPcache). If no `php.ini` exists yet, PVM creates one from `php.ini-development`.
 
 ---
 
 ## Thread Safe vs Non-Thread Safe
 
-- **TS (Thread Safe)** — for use with Apache mod_php or multi-threaded SAPIs. Default.
-- **NTS (Non-Thread Safe)** — for use with FastCGI / PHP-FPM / Nginx. Use `--nts` flag.
-
-If you're running Laravel with `php artisan serve`, either works. If you're running behind Nginx or a FastCGI server, prefer NTS.
+- **TS (Thread Safe)** — Default. Use for Apache mod_php or multi-threaded SAPIs.
+- **NTS (Non-Thread Safe)** — Use `--nts` for FastCGI / PHP-FPM / Nginx environments.
 
 ---
 
