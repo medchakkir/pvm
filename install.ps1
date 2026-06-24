@@ -29,7 +29,7 @@ $arch = if ([Environment]::Is64BitOperatingSystem) { "amd64" } else {
 }
 
 # Build download URL
-$zipName  = "pvm_${Version}_windows_${arch}.zip"
+$zipName  = "pvm-v${Version}-windows-${arch}.zip"
 $url      = "https://github.com/$Repo/releases/download/v$Version/$zipName"
 $tmpZip   = "$env:TEMP\$zipName"
 
